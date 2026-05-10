@@ -1,0 +1,14 @@
+Index: FFmpeg/libavfilter/vf_overlay_vaapi.c
+===================================================================
+--- FFmpeg.orig/libavfilter/vf_overlay_vaapi.c
++++ FFmpeg/libavfilter/vf_overlay_vaapi.c
+@@ -312,7 +312,8 @@ static int overlay_vaapi_config_input_ov
+         ctx->blend_alpha  = ctx->alpha;
+     }
+ 
+-    if (have_alpha_planar(inlink))
++    if (have_alpha_planar(inlink) &&
++        inlink->alpha_mode == AVALPHA_MODE_PREMULTIPLIED)
+         ctx->blend_flags |= VA_BLEND_PREMULTIPLIED_ALPHA;
+ 
+     return 0;
