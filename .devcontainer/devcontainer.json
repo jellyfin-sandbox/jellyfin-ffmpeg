@@ -1,0 +1,14 @@
+{
+  "name": "jellyfin-ffmpeg codespace",
+  "image": "mcr.microsoft.com/devcontainers/base:debian",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "installDockerComposeSwitch": false,
+      "moby": false
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "postCreateCommand": {
+    "unshallow": "git fetch --unshallow || true"
+  }
+}
