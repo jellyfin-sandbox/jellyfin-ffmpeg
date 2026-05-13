@@ -1,18 +1,23 @@
-FROM DISTRO
+# Use a build argument for the base image
+ARG BASE_IMAGE=debian:bookworm
+FROM ${BASE_IMAGE}
 
-# Docker build arguments
+# The target platform is automatically provided by Docker Buildx
+ARG TARGETPLATFORM
+ARG TARGETARCH
+
+# Other build arguments with default values
+ARG GCC_VER=12
+ARG LLVM_VER=19
+ARG LLVMSPIRVLIB_VER=15
 ARG SOURCE_DIR=/ffmpeg
 ARG ARTIFACT_DIR=/dist
 
 # Docker run environment
 ENV DEB_BUILD_OPTIONS=noddebs
 ENV DEBIAN_FRONTEND=noninteractive
-ENV ARCH=BUILD_ARCHITECTURE
-ENV GCC_VER=GCC_RELEASE_VERSION
-ENV LLVM_VER=LLVM_RELEASE_VERSION
-ENV LLVMSPIRVLIB_VER=LLVMSPIRVLIB_RELEASE_VERSION
-ENV SOURCE_DIR=/ffmpeg
-ENV ARTIFACT_DIR=/dist
+ENV SOURCE_DIR=${SOURCE_DIR}
+ENV ARTIFACT_DIR=${ARTIFACT_DIR}
 ENV TARGET_DIR=/usr/lib/jellyfin-ffmpeg
 ENV DPKG_INSTALL_LIST=${SOURCE_DIR}/debian/jellyfin-ffmpeg7.install
 ENV PATH=${TARGET_DIR}/bin:${PATH}
@@ -24,6 +29,12 @@ ENV CPPFLAGS="-I${TARGET_DIR}/include $CPPFLAGS"
 ENV CFLAGS="-I${TARGET_DIR}/include $CFLAGS"
 ENV CMAKE_POLICY_VERSION_MINIMUM="3.5"
 
+# Set versions from args to env
+ENV ARCH=${TARGETARCH}
+ENV GCC_VER=${GCC_VER}
+ENV LLVM_VER=${LLVM_VER}
+ENV LLVMSPIRVLIB_VER=${LLVMSPIRVLIB_VER}
+
 # Prepare Debian build environment
 RUN apt-get update \
  && apt-get dist-upgrade -y \
@@ -34,7 +45,7 @@ RUN apt-get update \
     libxcb-dri2-0-dev libxcb-dri3-dev libxcb-present-dev \
     libxcb-shm0-dev libxcb-sync-dev libxshmfence-dev libxext-dev \ 
     libxfixes-dev libxcb1-dev libxrandr-dev libzstd-dev \ 
-    libelf-dev python3-pip zip unzip tar flex bison gperf ragel \
+    libelf-dev python3-pip zip unzip tar flex bison gperf ragel lsb-release \
  && apt-get clean autoclean -y \
  && apt-get autoremove -y
 
@@ -46,11 +57,16 @@ RUN pip3 install $(pip3 help install | grep -o "\-\-break-system-packages") --ig
 RUN git config --global http.postbuffer 524288000 \
  && git config --global advice.detachedHead false
 
+# Copy the source code
+COPY . ${SOURCE_DIR}/
+
+# Prepare debian/ directory for the build
+RUN mkdir -p ${SOURCE_DIR}/debian && \
+    cp -r ${SOURCE_DIR}/packaging/debian/* ${SOURCE_DIR}/debian/
+
 # Link to docker-build script
-RUN ln -sf ${SOURCE_DIR}/docker-build.sh /docker-build.sh
+RUN ln -sf ${SOURCE_DIR}/packaging/linux/docker-build.sh /docker-build.sh
 
 VOLUME ${ARTIFACT_DIR}/
-
-COPY . ${SOURCE_DIR}/
 
 ENTRYPOINT ["/docker-build.sh"]

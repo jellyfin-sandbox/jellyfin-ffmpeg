@@ -87,7 +87,7 @@ else
     container_cmd=docker
 fi
 
-for dep in ${container_cmd} make mmv; do
+for dep in ${container_cmd} mmv; do
     command -v "${dep}" &>/dev/null || { echo "The command '${dep}' is required."; exit 1; }
 done
 
@@ -96,25 +96,33 @@ package_temporary_dir="$( mktemp -d )"
 
 # Trap cleanup for latter sections
 cleanup() {
-    # Clean up the Dockerfile
-    make -f Dockerfile.make clean
     # Remove tempdir
     rm -rf "${package_temporary_dir}"
 }
 trap cleanup EXIT INT
 
-# Generate Dockerfile
-make -f Dockerfile.make DISTRO=${release} GCC_VER=${gcc_ver} LLVM_VER=${llvm_ver} LLVMSPIRVLIB_VER=${llvmspirvlib_ver} ARCH=${arch}
 # Set up the build environment docker image
-${container_cmd} build . -t "${image_name}"
-# Build the APKs and copy out to ${package_temporary_dir}
-${container_cmd} run --rm -e "RELEASE=${release}" -v "${package_temporary_dir}:/dist" "${image_name}"
-# If no 3rd parameter was specified, move APKs to parent directory
+${container_cmd} build . \
+    -f packaging/linux/Dockerfile \
+    -t "${image_name}" \
+    --platform "linux/${arch}" \
+    --build-arg BASE_IMAGE="${release}" \
+    --build-arg GCC_VER="${gcc_ver}" \
+    --build-arg LLVM_VER="${llvm_ver}" \
+    --build-arg LLVMSPIRVLIB_VER="${llvmspirvlib_ver}"
+
+# Build the DEBs and copy out to ${package_temporary_dir}
+${container_cmd} run --rm \
+    --platform "linux/${arch}" \
+    -v "${package_temporary_dir}:/dist" \
+    "${image_name}"
+
+# If no 3rd parameter was specified, move DEBs to parent directory
 if [[ -z ${3} ]]; then
     path="../bin"
 else
     path="${3}"
 fi
-mkdir "${path}" &>/dev/null || true
+mkdir -p "${path}"
 mmv "${package_temporary_dir}/deb/*.deb" "${path}/#1.deb"
 mmv "${package_temporary_dir}/deb/*_${arch}.*" "${path}/#1-${cli_release}_${arch}.#2"
