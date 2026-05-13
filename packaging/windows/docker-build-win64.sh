@@ -594,7 +594,7 @@ popd
 
 # Jellyfin-FFmpeg
 pushd ${SOURCE_DIR}
-ffversion="$(dpkg-parsechangelog --show-field Version)"
+ffversion="$(dpkg-parsechangelog --show-field Version -l packaging/debian/changelog)"
 if [[ -f "patches/series" ]]; then
     quilt push -a
 fi

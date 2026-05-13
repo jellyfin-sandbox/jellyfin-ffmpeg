@@ -12,6 +12,11 @@ usage() {
     echo -e " * resolute"
 }
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
+CALL_DIR="$(pwd)"
+cd "$SCRIPT_DIR"
+
 if [[ -z ${1} ]]; then
     usage
     exit 1
@@ -20,37 +25,49 @@ fi
 cli_release="${1}"
 case ${cli_release} in
     'bullseye')
-        release="debian:bullseye"
+        base_image="debian"
+        base_tag="bullseye"
+        release="${base_image}:${base_tag}"
         gcc_ver="10"
         llvm_ver="16"
         llvmspirvlib_ver="11"
     ;;
     'bookworm')
-        release="debian:bookworm"
+        base_image="debian"
+        base_tag="bookworm"
+        release="${base_image}:${base_tag}"
         gcc_ver="12"
         llvm_ver="19"
         llvmspirvlib_ver="15"
     ;;
     'trixie')
-        release="debian:trixie"
+        base_image="debian"
+        base_tag="trixie"
+        release="${base_image}:${base_tag}"
         gcc_ver="14"
         llvm_ver="19"
         llvmspirvlib_ver="19"
     ;;
     'jammy')
-        release="ubuntu:jammy"
+        base_image="ubuntu"
+        base_tag="jammy"
+        release="${base_image}:${base_tag}"
         gcc_ver="11"
         llvm_ver="15"
         llvmspirvlib_ver="15"
     ;;
     'noble')
-        release="ubuntu:noble"
+        base_image="ubuntu"
+        base_tag="noble"
+        release="${base_image}:${base_tag}"
         gcc_ver="13"
         llvm_ver="19"
         llvmspirvlib_ver="19"
     ;;
     'resolute')
-        release="ubuntu:resolute"
+        base_image="ubuntu"
+        base_tag="resolute"
+        release="${base_image}:${base_tag}"
         gcc_ver="15"
         llvm_ver="20"
         llvmspirvlib_ver="20"
@@ -87,7 +104,7 @@ else
     container_cmd=docker
 fi
 
-for dep in ${container_cmd} make mmv; do
+for dep in ${container_cmd} mmv; do
     command -v "${dep}" &>/dev/null || { echo "The command '${dep}' is required."; exit 1; }
 done
 
@@ -96,25 +113,32 @@ package_temporary_dir="$( mktemp -d )"
 
 # Trap cleanup for latter sections
 cleanup() {
-    # Clean up the Dockerfile
-    make -f Dockerfile.make clean
     # Remove tempdir
     rm -rf "${package_temporary_dir}"
 }
 trap cleanup EXIT INT
 
-# Generate Dockerfile
-make -f Dockerfile.make DISTRO=${release} GCC_VER=${gcc_ver} LLVM_VER=${llvm_ver} LLVMSPIRVLIB_VER=${llvmspirvlib_ver} ARCH=${arch}
 # Set up the build environment docker image
-${container_cmd} build . -t "${image_name}"
+${container_cmd} build \
+    --build-arg BASE_IMAGE="${base_image}" \
+    --build-arg BASE_TAG="${base_tag}" \
+    --build-arg GCC_VER="${gcc_ver}" \
+    --build-arg LLVM_VER="${llvm_ver}" \
+    --build-arg LLVMSPIRVLIB_VER="${llvmspirvlib_ver}" \
+    --build-arg TARGETPLATFORM="linux/${arch}" \
+    -f "$SCRIPT_DIR/Dockerfile.in" \
+    -t "${image_name}" \
+    "$REPO_ROOT"
 # Build the APKs and copy out to ${package_temporary_dir}
 ${container_cmd} run --rm -e "RELEASE=${release}" -v "${package_temporary_dir}:/dist" "${image_name}"
 # If no 3rd parameter was specified, move APKs to parent directory
 if [[ -z ${3} ]]; then
-    path="../bin"
-else
+    path="${REPO_ROOT}/bin"
+elif [[ ${3} = /* ]]; then
     path="${3}"
+else
+    path="${CALL_DIR}/${3}"
 fi
-mkdir "${path}" &>/dev/null || true
+mkdir -p "${path}"
 mmv "${package_temporary_dir}/deb/*.deb" "${path}/#1.deb"
 mmv "${package_temporary_dir}/deb/*_${arch}.*" "${path}/#1-${cli_release}_${arch}.#2"

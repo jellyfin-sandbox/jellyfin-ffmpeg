@@ -3,6 +3,11 @@
 set -o xtrace
 set -o errexit
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
+CALL_DIR="$(pwd)"
+cd "$SCRIPT_DIR"
+
 # Check for dependencies
 for dep in bash docker; do
     command -v ${dep} &>/dev/null || { echo "The command '${dep}' is required."; exit 1; }
@@ -10,15 +15,17 @@ done
 
 # Build the jellyfin-ffmpeg portable version
 [[ $(docker image ls 'ghcr.io/jellyfin/jellyfin-ffmpeg/linuxarm64-gpl:latest' | wc -l) -eq 1 ]] && \
-    ./builder/makeimage.sh linuxarm64 gpl
+    ./makeimage.sh linuxarm64 gpl
 
-./builder/build.sh linuxarm64 gpl
+./build.sh linuxarm64 gpl
 
 # If no 1st parameter was specified, move pkg to parent directory
 if [[ -z ${1} ]]; then
-    path="../bin"
-else
+    path="${REPO_ROOT}/bin"
+elif [[ ${1} = /* ]]; then
     path="${1}"
+else
+    path="${CALL_DIR}/${1}"
 fi
-mkdir ${path} &>/dev/null || true
-mv builder/artifacts/jellyfin-ffmpeg*portable_linuxarm64-gpl*.tar.xz "${path}"
+mkdir -p "${path}"
+mv artifacts/jellyfin-ffmpeg*portable_linuxarm64-gpl*.tar.xz "${path}"

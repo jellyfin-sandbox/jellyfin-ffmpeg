@@ -51,7 +51,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Build Portable
-        run: ./build-${{ inputs.os }}-${{ matrix.arch }} ./dist
+        run: ${{ inputs.os == 'windows' && './packaging/windows/build-windows-win64 ./dist' || format('./packaging/portable/build-{0}-{1} ./dist', inputs.os, matrix.arch) }}
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

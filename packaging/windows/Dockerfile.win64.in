@@ -1,8 +1,11 @@
-FROM DISTRO
+ARG BASE_IMAGE
+ARG BASE_TAG
+FROM ${BASE_IMAGE}:${BASE_TAG}
 
 # Docker build arguments
 ARG SOURCE_DIR=/ffmpeg
 ARG ARTIFACT_DIR=/dist
+ARG TARGETPLATFORM
 
 # Docker run environment
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -12,8 +15,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     FF_DEPS_PREFIX=/opt/ffdeps \
     FF_TOOLCHAIN=x86_64-w64-mingw32 \
     FF_CROSS_PREFIX=x86_64-w64-mingw32- \
-    FF_CMAKE_TOOLCHAIN=${SOURCE_DIR}/toolchain-win64.cmake \
-    FF_MESON_TOOLCHAIN=${SOURCE_DIR}/cross-win64.meson \
+   FF_CMAKE_TOOLCHAIN=${SOURCE_DIR}/packaging/windows/toolchain-win64.cmake \
+   FF_MESON_TOOLCHAIN=${SOURCE_DIR}/packaging/windows/cross-win64.meson \
     FF_TARGET_FLAGS="--arch=x86_64 --target-os=mingw32 --cross-prefix=x86_64-w64-mingw32- --pkg-config=pkg-config --pkg-config-flags=--static" \
     PKG_CONFIG=pkg-config \
     PKG_CONFIG_LIBDIR=/opt/ffdeps/lib/pkgconfig:/opt/ffdeps/share/pkgconfig \
@@ -22,6 +25,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     LDFLAGS="-static-libgcc -static-libstdc++ -L/opt/ffdeps/lib -O2 -pipe" \
     DLLTOOL="x86_64-w64-mingw32-dlltool" \
     CMAKE_POLICY_VERSION_MINIMUM="3.5"
+ENV TARGETPLATFORM=${TARGETPLATFORM}
 
 # Use more reliable mirrors for Ubuntu packages
 RUN mkdir -p /etc/apt/sources.list.d/ \
@@ -34,7 +38,7 @@ RUN mkdir -p /etc/apt/sources.list.d/ \
 # Prepare Debian and mingw-w64 build environment
 RUN apt-get update \
  && apt-get dist-upgrade -y \
- && apt-get install -y \ 
+ && apt-get install -y \
     build-essential yasm nasm xxd pkgconf git curl \
     wget unzip subversion autoconf automake libtool \
     libtool-bin autopoint cmake clang texinfo texi2html \
@@ -58,7 +62,7 @@ RUN git config --global http.postbuffer 524288000 \
 # Prepare build script and patches
 RUN mkdir -p /opt/ffmpeg /opt/ffdeps ${SOURCE_DIR} \
  && ln -sf ${SOURCE_DIR}/debian/patches ${SOURCE_DIR} \
- && ln -sf ${SOURCE_DIR}/docker-build-win64.sh /docker-build-win64.sh
+ && ln -sf ${SOURCE_DIR}/packaging/windows/docker-build-win64.sh /docker-build-win64.sh
 
 VOLUME ${ARTIFACT_DIR}/
 

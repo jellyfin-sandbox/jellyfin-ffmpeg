@@ -1,20 +1,26 @@
-FROM DISTRO
+ARG BASE_IMAGE
+ARG BASE_TAG
+FROM ${BASE_IMAGE}:${BASE_TAG}
 
 # Docker build arguments
 ARG SOURCE_DIR=/ffmpeg
 ARG ARTIFACT_DIR=/dist
+ARG TARGETPLATFORM
+ARG GCC_VER
+ARG LLVM_VER
+ARG LLVMSPIRVLIB_VER
 
 # Docker run environment
 ENV DEB_BUILD_OPTIONS=noddebs
 ENV DEBIAN_FRONTEND=noninteractive
-ENV ARCH=BUILD_ARCHITECTURE
-ENV GCC_VER=GCC_RELEASE_VERSION
-ENV LLVM_VER=LLVM_RELEASE_VERSION
-ENV LLVMSPIRVLIB_VER=LLVMSPIRVLIB_RELEASE_VERSION
+ENV TARGETPLATFORM=${TARGETPLATFORM}
+ENV GCC_VER=${GCC_VER}
+ENV LLVM_VER=${LLVM_VER}
+ENV LLVMSPIRVLIB_VER=${LLVMSPIRVLIB_VER}
 ENV SOURCE_DIR=/ffmpeg
 ENV ARTIFACT_DIR=/dist
 ENV TARGET_DIR=/usr/lib/jellyfin-ffmpeg
-ENV DPKG_INSTALL_LIST=${SOURCE_DIR}/debian/jellyfin-ffmpeg7.install
+ENV DPKG_INSTALL_LIST=${SOURCE_DIR}/packaging/debian/jellyfin-ffmpeg7.install
 ENV PATH=${TARGET_DIR}/bin:${PATH}
 ENV PKG_CONFIG_PATH=${TARGET_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH}
 ENV LD_LIBRARY_PATH=${TARGET_DIR}/lib:${TARGET_DIR}/lib/mfx:${TARGET_DIR}/lib/xorg:${LD_LIBRARY_PATH}
@@ -28,12 +34,12 @@ ENV CMAKE_POLICY_VERSION_MINIMUM="3.5"
 RUN apt-get update \
  && apt-get dist-upgrade -y \
  && apt-get install -y apt-transport-https \
-    curl ninja-build debhelper gnupg wget devscripts \ 
+   curl ninja-build debhelper gnupg wget devscripts \
     mmv equivs git nasm pkg-config subversion dh-autoreconf \
     libpciaccess-dev libwayland-dev libx11-dev libx11-xcb-dev \
     libxcb-dri2-0-dev libxcb-dri3-dev libxcb-present-dev \
-    libxcb-shm0-dev libxcb-sync-dev libxshmfence-dev libxext-dev \ 
-    libxfixes-dev libxcb1-dev libxrandr-dev libzstd-dev \ 
+   libxcb-shm0-dev libxcb-sync-dev libxshmfence-dev libxext-dev \
+   libxfixes-dev libxcb1-dev libxrandr-dev libzstd-dev \
     libelf-dev python3-pip zip unzip tar flex bison gperf ragel \
  && apt-get clean autoclean -y \
  && apt-get autoremove -y
@@ -47,7 +53,7 @@ RUN git config --global http.postbuffer 524288000 \
  && git config --global advice.detachedHead false
 
 # Link to docker-build script
-RUN ln -sf ${SOURCE_DIR}/docker-build.sh /docker-build.sh
+RUN ln -sf ${SOURCE_DIR}/packaging/debian/docker-build.sh /docker-build.sh
 
 VOLUME ${ARTIFACT_DIR}/
 

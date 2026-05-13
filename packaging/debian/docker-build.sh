@@ -9,6 +9,21 @@ DEBIAN_ADDR=http://deb.debian.org/debian/
 UBUNTU_ARCHIVE_ADDR=http://archive.ubuntu.com/ubuntu/
 UBUNTU_PORTS_ADDR=http://ports.ubuntu.com/ubuntu-ports/
 
+if [[ -z ${ARCH:-} ]]; then
+    case ${TARGETPLATFORM:-} in
+        linux/amd64*)
+            ARCH="amd64"
+        ;;
+        linux/arm64*)
+            ARCH="arm64"
+        ;;
+        *)
+            echo "Unsupported TARGETPLATFORM: ${TARGETPLATFORM:-unset}"
+            exit 1
+        ;;
+    esac
+fi
+
 # Prepare common extra libs for amd64 and arm64
 prepare_extra_common() {
     case ${ARCH} in
@@ -21,8 +36,8 @@ prepare_extra_common() {
         'arm64')
             CROSS_PREFIX_OPT="aarch64-linux-gnu-"
             CROSS_OPT="--host=aarch64-linux-gnu CC=aarch64-linux-gnu-gcc CXX=aarch64-linux-gnu-g++"
-            CMAKE_TOOLCHAIN_OPT="-DCMAKE_TOOLCHAIN_FILE=${SOURCE_DIR}/toolchain-${ARCH}.cmake"
-            MESON_CROSS_OPT="--cross-file=${SOURCE_DIR}/cross-${ARCH}.meson"
+            CMAKE_TOOLCHAIN_OPT="-DCMAKE_TOOLCHAIN_FILE=${SOURCE_DIR}/packaging/debian/toolchain-${ARCH}.cmake"
+            MESON_CROSS_OPT="--cross-file=${SOURCE_DIR}/packaging/debian/cross-${ARCH}.meson"
         ;;
     esac
 
@@ -629,7 +644,7 @@ prepare_extra_amd64() {
     pushd ${SOURCE_DIR}
     git clone -b v7.351.0 --recursive --depth=1 https://github.com/haasn/libplacebo.git
     # Wa for the regression made in Mesa RADV
-    git -C libplacebo apply ${SOURCE_DIR}/builder/patches/libplacebo/*.patch
+    git -C libplacebo apply ${SOURCE_DIR}/packaging/portable/patches/libplacebo/*.patch
     # Fix build script for python 3.14
     wget -q -O - https://github.com/haasn/libplacebo/commit/12509c0.patch | git -C libplacebo apply
     sed -i 's|env: python_env,||g' libplacebo/src/vulkan/meson.build

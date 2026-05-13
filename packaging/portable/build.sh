@@ -1,7 +1,9 @@
 #!/bin/bash
 set -xe
 shopt -s globstar
-cd "$(dirname "$0")"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
+cd "$SCRIPT_DIR"
 source util/vars.sh
 
 get_output() {
@@ -49,7 +51,7 @@ rm -f "$TESTFILE"
 
 rm -rf ffbuild
 mkdir -p ffbuild/ffmpeg
-rsync -a .. ffbuild/ffmpeg --exclude=$(basename "$PWD")
+rsync -a "$REPO_ROOT"/ ffbuild/ffmpeg --exclude=packaging/portable
 
 BUILD_SCRIPT="$(mktemp)"
 trap "rm -f -- '$BUILD_SCRIPT'" EXIT
@@ -84,7 +86,7 @@ docker run --rm -i $TTY_ARG "${UIDARGS[@]}" -v $PWD/ffbuild:/ffbuild -v "$BUILD_
 
 mkdir -p artifacts
 ARTIFACTS_PATH="$PWD/artifacts"
-PKG_VER=$(dpkg-parsechangelog --show-field Version -l ffbuild/ffmpeg/debian/changelog)
+PKG_VER=$(dpkg-parsechangelog --show-field Version -l ffbuild/ffmpeg/packaging/debian/changelog)
 PKG_NAME="jellyfin-ffmpeg_${PKG_VER}_portable_${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
 
 mkdir -p ffbuild/pkgroot

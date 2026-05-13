@@ -1,7 +1,8 @@
 #!/bin/bash
 set -xe
-cd "$(dirname "$0")"
-export BUILDER_ROOT="$(pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
+export BUILDER_ROOT="$SCRIPT_DIR"
 export FFBUILD_PREFIX="/opt/ffbuild/prefix"
 
 get_output() {
@@ -74,7 +75,7 @@ for lib in scripts.d/*.sh; do
 done
 
 cd "$BUILDER_ROOT"
-cd ..
+cd "$REPO_ROOT"
 if [[ -f "debian/patches/series" ]]; then
     ln -s debian/patches patches
     quilt push -a
@@ -102,7 +103,7 @@ while IFS= read -r line; do
             break
         fi
     fi
-done < "$BUILDER_ROOT"/../debian/changelog
+done < "$REPO_ROOT"/packaging/debian/changelog
 
 PKG_NAME="jellyfin-ffmpeg_${PKG_VER}_portable_${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
 ARTIFACTS_PATH="$BUILDER_ROOT"/artifacts
@@ -110,10 +111,10 @@ OUTPUT_FNAME="${PKG_NAME}.tar.xz"
 cd "$BUILDER_ROOT"
 mkdir -p artifacts
 # bsdtar can add files in parent dir, but macOS's native archive utility won't be able to unzip it by double clicking, we have to move it to current dir as a workaround
-mv ../ffmpeg ./
-mv ../ffprobe ./
+mv "$REPO_ROOT"/ffmpeg ./
+mv "$REPO_ROOT"/ffprobe ./
 tar -cJf "${ARTIFACTS_PATH}/${OUTPUT_FNAME}" ffmpeg ffprobe
-cd "$BUILDER_ROOT"/..
+cd "$REPO_ROOT"
 
 if [[ -n "$GITHUB_ACTIONS" ]]; then
     echo "build_name=${BUILD_NAME}" >> "$GITHUB_OUTPUT"

@@ -2,5 +2,6 @@
 *.ico -diff -text
 *.pnm -diff -text
 debian/patches/* -text
+packaging/portable/patches/* -text
 tests/ref/fate/* -text
 tests/ref/fate/sub-scc text eol=crlf
