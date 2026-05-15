@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -o xtrace
+set -o errexit
+# Build from project root
+cd "$(dirname "$0")/.."
+[[ $(docker image ls 'ghcr.io/jellyfin/jellyfin-ffmpeg/linuxarm64-gpl:latest' | wc -l) -eq 1 ]] && \
+    ./packaging/portable/makeimage.sh linuxarm64 gpl
+./packaging/portable/build.sh linuxarm64 gpl
+dest=${1:-./dist}
+mkdir -p "$dest"
+mv packaging/portable/artifacts/*.tar.xz "$dest"/

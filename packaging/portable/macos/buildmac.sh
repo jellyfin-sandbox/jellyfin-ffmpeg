@@ -2,16 +2,17 @@
 set -xe
 cd "$(dirname "$0")"
 export BUILDER_ROOT="$(pwd)"
+export ROOT_DIR="../../../"
 export FFBUILD_PREFIX="/opt/ffbuild/prefix"
 
 get_output() {
     (
         SELF="$1"
-        source $1
+        source "$1"
         if ffbuild_enabled; then
-            ffbuild_$2 || exit 0
+            ffbuild_$2 || return 0
         else
-            ffbuild_un$2 || exit 0
+            ffbuild_un$2 || return 0
         fi
     )
 }
@@ -30,22 +31,22 @@ elif [ "$arch" = "x86_64" ]; then
     TARGET="mac64"
 else
     echo "Unknown architecture"
-    exit 1
+    return 1
 fi
 
-source "variants/${TARGET}-gpl.sh"
+source "${ROOT_DIR}builder/variants/${TARGET}-gpl.sh"
 
 for addin in ${ADDINS[*]}; do
-    source "addins/${addin}.sh"
+    source "${ROOT_DIR}builder/addins/${addin}.sh"
 done
 
-for script in scripts.d/*.sh; do
-    FF_CONFIGURE+=" $(get_output $script configure)"
-    FF_CFLAGS+=" $(get_output $script cflags)"
-    FF_CXXFLAGS+=" $(get_output $script cxxflags)"
-    FF_LDFLAGS+=" $(get_output $script ldflags)"
-    FF_LDEXEFLAGS+=" $(get_output $script ldexeflags)"
-    FF_LIBS+=" $(get_output $script libs)"
+for script in "${ROOT_DIR}builder/scripts.d/"*.sh; do
+    FF_CONFIGURE+=" $(get_output "$script" configure)"
+    FF_CFLAGS+=" $(get_output "$script" cflags)"
+    FF_CXXFLAGS+=" $(get_output "$script" cxxflags)"
+    FF_LDFLAGS+=" $(get_output "$script" ldflags)"
+    FF_LDEXEFLAGS+=" $(get_output "$script" ldexeflags)"
+    FF_LIBS+=" $(get_output "$script" libs)"
 done
 
 FF_CONFIGURE="$(xargs <<< "$FF_CONFIGURE")"
@@ -59,24 +60,30 @@ FF_HOST_LDFLAGS="$(xargs <<< "$FF_HOST_LDFLAGS")"
 FFBUILD_TARGET_FLAGS="$(xargs <<< "$FFBUILD_TARGET_FLAGS")"
 
 mkdir -p build
-for macbase in images/macos/*.sh; do
+for macbase in "${ROOT_DIR}builder/images/macos/"*.sh; do
     cd "$BUILDER_ROOT"/build
-    source "$BUILDER_ROOT"/"$macbase"
-    ffbuild_macbase || exit $?
+    source "$macbase"
+    ffbuild_macbase || return $?
 done
 
 cd "$BUILDER_ROOT"
-for lib in scripts.d/*.sh; do
+for lib in "${ROOT_DIR}builder/scripts.d/"*.sh; do
     cd "$BUILDER_ROOT"/build
-    source "$BUILDER_ROOT"/"$lib"
+    source "$lib"
     ffbuild_enabled || continue
-    ffbuild_dockerbuild || exit $?
+    ffbuild_dockerbuild || return $?
 done
 
 cd "$BUILDER_ROOT"
-cd ..
+cd "${ROOT_DIR}"
+
+# Reconstruct debian/ patches link for build
+mkdir -p debian
+ln -sf patches/ffmpeg debian/patches
+
 if [[ -f "debian/patches/series" ]]; then
-    ln -s debian/patches patches
+    # patches are in debian/patches
+    ln -sf debian/patches patches
     quilt push -a
 fi
 
@@ -102,16 +109,16 @@ while IFS= read -r line; do
             break
         fi
     fi
-done < "$BUILDER_ROOT"/../debian/changelog
+done < "packaging/debian/changelog"
 
 PKG_NAME="jellyfin-ffmpeg_${PKG_VER}_portable_${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
-ARTIFACTS_PATH="$BUILDER_ROOT"/artifacts
+ARTIFACTS_PATH="${ROOT_DIR}artifacts"
 OUTPUT_FNAME="${PKG_NAME}.tar.xz"
 cd "$BUILDER_ROOT"
-mkdir -p artifacts
+mkdir -p "${ARTIFACTS_PATH}"
 # bsdtar can add files in parent dir, but macOS's native archive utility won't be able to unzip it by double clicking, we have to move it to current dir as a workaround
-mv ../ffmpeg ./
-mv ../ffprobe ./
+mv ../../../ffmpeg ./
+mv ../../../ffprobe ./
 tar -cJf "${ARTIFACTS_PATH}/${OUTPUT_FNAME}" ffmpeg ffprobe
 cd "$BUILDER_ROOT"/..
 

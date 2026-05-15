@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-
 set -o xtrace
 set -o errexit
+# Build from project root
+cd "$(dirname "$0")/.."
 
 # Check for dependencies
-for dep in docker make; do
+for dep in docker; do
     command -v ${dep} &>/dev/null || { echo "The command '${dep}' is required."; exit 1; }
 done
 
@@ -12,28 +13,28 @@ done
 distro="ubuntu:noble"
 image_name="jellyfin-ffmpeg-build-windows-win64"
 package_temporary_dir="$( mktemp -d )"
-current_user="$( whoami )"
 
 # Trap cleanup for latter sections
 cleanup() {
-    # Clean up the Dockerfile
-    make -f Dockerfile.win64.make clean
     # Remove tempdir
     rm -rf "${package_temporary_dir}"
 }
 trap cleanup EXIT INT
 
-# Generate Dockerfile
-make -f Dockerfile.win64.make DISTRO=${distro}
 # Set up the build environment docker image
-docker build . -t "${image_name}"
-# Build the APKs and copy out to ${package_temporary_dir}
+docker build . \
+    -f packaging/windows/Dockerfile.win64 \
+    -t "${image_name}" \
+    --build-arg BASE_IMAGE="${distro}"
+
+# Build the packages and copy out to ${package_temporary_dir}
 docker run --rm -v "${package_temporary_dir}:/dist" "${image_name}"
-# If no 1st parameter was specified, move APKs to parent directory
+
+# If no 1st parameter was specified, move artifacts to parent directory
 if [[ -z ${1} ]]; then
-    path="../bin"
+    path="./dist"
 else
     path="${1}"
 fi
-mkdir ${path} &>/dev/null || true
-mv "${package_temporary_dir}"/zip/jellyfin-ffmpeg*.zip "${path}"
+mkdir -p "${path}"
+mv "${package_temporary_dir}"/zip/jellyfin-ffmpeg*.zip "${path}"/

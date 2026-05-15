@@ -19,16 +19,22 @@ for pkg in *; do
         echo "Installing $pkg"
         cd "$pkg"
 
-        (MINGW_ARCH=clang64 makepkg-mingw -sLfi --noconfirm --skippgpcheck) || exit $?
+        (MINGW_ARCH=clang64 makepkg-mingw -sLfi --noconfirm --skippgpcheck) || true
 
         cd ..
       fi
 done
 
 cd "$BUILDER_ROOT"
-cd ..
+cd ../../../
+
+# Reconstruct debian/ patches link for build
+mkdir -p debian
+ln -sf patches/ffmpeg debian/patches
+
 if [[ -f "debian/patches/series" ]]; then
-    ln -s debian/patches patches
+    # Use patches/ffmpeg for quilt
+    ln -sf patches/ffmpeg patches
     quilt push -a
 fi
 
@@ -95,15 +101,15 @@ while IFS= read -r line; do
             break
         fi
     fi
-done < "$BUILDER_ROOT"/../debian/changelog
+done < "packaging/debian/changelog"
 
 PKG_NAME="jellyfin-ffmpeg_${PKG_VER}_portable_${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
 ARTIFACTS_PATH="$BUILDER_ROOT"/artifacts
 OUTPUT_FNAME="${PKG_NAME}.zip"
 cd "$BUILDER_ROOT"
 mkdir -p artifacts
-mv ../ffmpeg.exe ./
-mv ../ffprobe.exe ./
+mv ../../../ffmpeg.exe ./
+mv ../../../ffprobe.exe ./
 zip -9 -r "${ARTIFACTS_PATH}/${OUTPUT_FNAME}" ffmpeg.exe ffprobe.exe
 cd "$BUILDER_ROOT"/..
 

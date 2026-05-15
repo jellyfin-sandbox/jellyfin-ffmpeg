@@ -1,13 +1,18 @@
 #!/bin/bash
 set -xe
-cd "$(dirname "$0")"
-source util/vars.sh
+
+# Ensure we are in project root
+if [[ ! -d "builder/scripts.d" ]]; then
+    cd "$(dirname "$0")/../.."
+fi
+
+source builder/util/vars.sh
 
 TMPCFG="$(mktemp --suffix=.toml)"
-cat <<EOF >"$TMPCFG"
+cat <<EOFTOML >"$TMPCFG"
 [worker.oci]
   max-parallelism = 4
-EOF
+EOFTOML
 trap "rm -f '$TMPCFG'" EXIT
 
 docker buildx inspect ffbuilder &>/dev/null || docker buildx create \
@@ -25,27 +30,27 @@ if [[ -z "$QUICKBUILD" ]]; then
     LOCAL_ROOT="127.0.0.1:${LOCAL_REG_PORT}/local"
     trap "rm -f '$TMPCFG'; docker container stop ffbuildreg" EXIT
 
-    if grep "FROM.*base.*" "images/base-${TARGET}/Dockerfile" >/dev/null 2>&1; then
+    if grep "FROM.*base.*" "builder/images/base-${TARGET}/Dockerfile" >/dev/null 2>&1; then
         docker buildx --builder ffbuilder build \
             --cache-from=type=local,src=.cache/"${BASE_IMAGE/:/_}" \
             --cache-to=type=local,mode=max,dest=.cache/"${BASE_IMAGE/:/_}" \
-            --push --tag "${LOCAL_ROOT}/base:latest" images/base
+            --push --tag "${LOCAL_ROOT}/base:latest" builder/images/base
     fi
 
     docker buildx --builder ffbuilder build \
         --cache-from=type=local,src=.cache/"${TARGET_IMAGE/:/_}" \
         --cache-to=type=local,mode=max,dest=.cache/"${TARGET_IMAGE/:/_}" \
         --push --tag "${LOCAL_ROOT}/base-${TARGET}:latest" \
-        --build-arg GH_REPO="$LOCAL_ROOT" "images/base-${TARGET}"
+        --build-arg GH_REPO="$LOCAL_ROOT" "builder/images/base-${TARGET}"
 
     export REGISTRY_OVERRIDE="127.0.0.1:${LOCAL_REG_PORT}" GITHUB_REPOSITORY="local"
 fi
 
-./generate.sh "$TARGET" "$VARIANT" "${ADDINS[@]}"
+./packaging/portable/generate.sh "$TARGET" "$VARIANT" "${ADDINS[@]}"
 
 docker buildx --builder ffbuilder build \
     --cache-from=type=local,src=.cache/"${IMAGE/:/_}" \
     --cache-to=type=local,mode=max,dest=.cache/"${IMAGE/:/_}" \
-    --load --tag "$IMAGE" .
+    --load --tag "$IMAGE" -f packaging/portable/Dockerfile .
 
 docker buildx rm -f ffbuilder
