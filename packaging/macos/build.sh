@@ -1,13 +1,7 @@
 #!/bin/bash
-# MacOS build script for Jellyfin FFmpeg
+# Entry point for macOS builds
 set -e
-
-SOURCE_DIR="$(pwd)"
-ARTIFACT_DIR="${SOURCE_DIR}/artifacts"
-mkdir -p "${ARTIFACT_DIR}"
-
-# Prepare builder/ directory for the build as it expects it
-mkdir -p builder
-cp -r packaging/portable/* builder/
-
-./builder/macos/buildmac.sh "$@"
+arch=${1:-$(uname -m)}
+# Build from project root
+cd "$(dirname "$0")/.."
+./packaging/portable/macos/buildmac.sh "$arch"

@@ -2,7 +2,8 @@
 set -xe
 shopt -s globstar
 cd "$(dirname "$0")"
-source util/vars.sh
+# Shared logic is in builder/ in root
+source ../../builder/util/vars.sh
 
 get_output() {
     (
@@ -16,15 +17,15 @@ get_output() {
     )
 }
 
-source "variants/${TARGET}-${VARIANT}.sh"
+source "../../builder/variants/${TARGET}-${VARIANT}.sh"
 
 for addin in ${ADDINS[*]}; do
-    source "addins/${addin}.sh"
+    source "../../builder/addins/${addin}.sh"
 done
 
 export FFBUILD_PREFIX="$(docker run --rm "$IMAGE" bash -c 'echo $FFBUILD_PREFIX')"
 
-for script in scripts.d/**/*.sh; do
+for script in ../../builder/scripts.d/**/*.sh; do
     FF_CONFIGURE+=" $(get_output $script configure)"
     FF_CFLAGS+=" $(get_output $script cflags)"
     FF_CXXFLAGS+=" $(get_output $script cxxflags)"
@@ -49,7 +50,12 @@ rm -f "$TESTFILE"
 
 rm -rf ffbuild
 mkdir -p ffbuild/ffmpeg
-rsync -a .. ffbuild/ffmpeg --exclude=$(basename "$PWD")
+# Sync everything from root except packaging
+rsync -a ../../ ffbuild/ffmpeg --exclude=packaging
+# Copy debian metadata specifically
+mkdir -p ffbuild/ffmpeg/debian
+cp -r ../../packaging/debian/* ffbuild/ffmpeg/debian/
+rm -rf ffbuild/ffmpeg/debian/patches
 
 BUILD_SCRIPT="$(mktemp)"
 trap "rm -f -- '$BUILD_SCRIPT'" EXIT
@@ -60,8 +66,12 @@ cat <<EOF >"$BUILD_SCRIPT"
     rm -rf prefix
     cd ffmpeg
 
+    # Reconstruct debian/ patches link for build
+    ln -sf /ffbuild/ffmpeg/patches/ffmpeg debian/patches
+
     if [[ -f "debian/patches/series" ]]; then
-        ln -s /ffbuild/ffmpeg/debian/patches patches
+        # Use our own patches dir
+        ln -sf /ffbuild/ffmpeg/patches/ffmpeg patches
         quilt push -a
     fi
 
@@ -84,7 +94,8 @@ docker run --rm -i $TTY_ARG "${UIDARGS[@]}" -v $PWD/ffbuild:/ffbuild -v "$BUILD_
 
 mkdir -p artifacts
 ARTIFACTS_PATH="$PWD/artifacts"
-PKG_VER=$(dpkg-parsechangelog --show-field Version -l ffbuild/ffmpeg/debian/changelog)
+# Get version from packaging/debian/changelog
+PKG_VER=$(grep -m1 -oP 'jellyfin-ffmpeg \(\K[^)]+' ../../packaging/debian/changelog)
 PKG_NAME="jellyfin-ffmpeg_${PKG_VER}_portable_${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
 
 mkdir -p ffbuild/pkgroot
