@@ -2,30 +2,30 @@
 set -xe
 shopt -s globstar
 cd "$(dirname "$0")"
-# Shared logic is in builder/ in root
-source ../../builder/util/vars.sh
+# Shared logic is in util/vars.sh
+source util/vars.sh
 
 get_output() {
     (
         SELF="$1"
         source $1
         if ffbuild_enabled; then
-            ffbuild_$2 || exit 0
+            ffbuild_$2 || return 0
         else
-            ffbuild_un$2 || exit 0
+            ffbuild_un$2 || return 0
         fi
     )
 }
 
-source "../../builder/variants/${TARGET}-${VARIANT}.sh"
+source "variants/${TARGET}-${VARIANT}.sh"
 
 for addin in ${ADDINS[*]}; do
-    source "../../builder/addins/${addin}.sh"
+    source "addins/${addin}.sh"
 done
 
-export FFBUILD_PREFIX="$(docker run --rm "$IMAGE" bash -c 'echo $FFBUILD_PREFIX')"
+export FFBUILD_PREFIX="$(docker run --rm "$IMAGE" bash -c "echo \$FFBUILD_PREFIX")"
 
-for script in ../../builder/scripts.d/**/*.sh; do
+for script in scripts.d/**/*.sh; do
     FF_CONFIGURE+=" $(get_output $script configure)"
     FF_CFLAGS+=" $(get_output $script cflags)"
     FF_CXXFLAGS+=" $(get_output $script cxxflags)"

@@ -1,12 +1,7 @@
 #!/bin/bash
 set -xe
-
-# Ensure we are in project root
-if [[ ! -d "builder/scripts.d" ]]; then
-    cd "$(dirname "$0")/../.."
-fi
-
-source builder/util/vars.sh
+cd "$(dirname "$0")"
+source util/vars.sh
 
 TMPCFG="$(mktemp --suffix=.toml)"
 cat <<EOFTOML >"$TMPCFG"
@@ -30,27 +25,27 @@ if [[ -z "$QUICKBUILD" ]]; then
     LOCAL_ROOT="127.0.0.1:${LOCAL_REG_PORT}/local"
     trap "rm -f '$TMPCFG'; docker container stop ffbuildreg" EXIT
 
-    if grep "FROM.*base.*" "builder/images/base-${TARGET}/Dockerfile" >/dev/null 2>&1; then
+    if grep "FROM.*base.*" "images/base-${TARGET}/Dockerfile" >/dev/null 2>&1; then
         docker buildx --builder ffbuilder build \
             --cache-from=type=local,src=.cache/"${BASE_IMAGE/:/_}" \
             --cache-to=type=local,mode=max,dest=.cache/"${BASE_IMAGE/:/_}" \
-            --push --tag "${LOCAL_ROOT}/base:latest" builder/images/base
+            --push --tag "${LOCAL_ROOT}/base:latest" images/base
     fi
 
     docker buildx --builder ffbuilder build \
         --cache-from=type=local,src=.cache/"${TARGET_IMAGE/:/_}" \
         --cache-to=type=local,mode=max,dest=.cache/"${TARGET_IMAGE/:/_}" \
         --push --tag "${LOCAL_ROOT}/base-${TARGET}:latest" \
-        --build-arg GH_REPO="$LOCAL_ROOT" "builder/images/base-${TARGET}"
+        --build-arg GH_REPO="$LOCAL_ROOT" "images/base-${TARGET}"
 
     export REGISTRY_OVERRIDE="127.0.0.1:${LOCAL_REG_PORT}" GITHUB_REPOSITORY="local"
 fi
 
-./packaging/portable/generate.sh "$TARGET" "$VARIANT" "${ADDINS[@]}"
+./generate.sh "$TARGET" "$VARIANT" "${ADDINS[@]}"
 
 docker buildx --builder ffbuilder build \
     --cache-from=type=local,src=.cache/"${IMAGE/:/_}" \
     --cache-to=type=local,mode=max,dest=.cache/"${IMAGE/:/_}" \
-    --load --tag "$IMAGE" -f packaging/portable/Dockerfile .
+    --load --tag "$IMAGE" .
 
 docker buildx rm -f ffbuilder

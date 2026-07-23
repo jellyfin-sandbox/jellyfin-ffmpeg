@@ -30,11 +30,11 @@ cd ../../../
 
 # Reconstruct debian/ patches link for build
 mkdir -p debian
-ln -sf patches/ffmpeg debian/patches
+ln -sf "$(pwd)/patches/ffmpeg" debian/patches
 
 if [[ -f "debian/patches/series" ]]; then
     # Use patches/ffmpeg for quilt
-    ln -sf patches/ffmpeg patches
+    ln -sf "$(pwd)/patches/ffmpeg" patches
     quilt push -a
 fi
 
