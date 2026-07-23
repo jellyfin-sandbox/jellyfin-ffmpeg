@@ -34,13 +34,13 @@ else
     return 1
 fi
 
-source "${ROOT_DIR}builder/variants/${TARGET}-gpl.sh"
+source "${ROOT_DIR}packaging/portable/variants/${TARGET}-gpl.sh"
 
 for addin in ${ADDINS[*]}; do
-    source "${ROOT_DIR}builder/addins/${addin}.sh"
+    source "${ROOT_DIR}packaging/portable/addins/${addin}.sh"
 done
 
-for script in "${ROOT_DIR}builder/scripts.d/"*.sh; do
+for script in "${ROOT_DIR}packaging/portable/scripts.d/"*.sh; do
     FF_CONFIGURE+=" $(get_output "$script" configure)"
     FF_CFLAGS+=" $(get_output "$script" cflags)"
     FF_CXXFLAGS+=" $(get_output "$script" cxxflags)"
@@ -60,14 +60,14 @@ FF_HOST_LDFLAGS="$(xargs <<< "$FF_HOST_LDFLAGS")"
 FFBUILD_TARGET_FLAGS="$(xargs <<< "$FFBUILD_TARGET_FLAGS")"
 
 mkdir -p build
-for macbase in "${ROOT_DIR}builder/images/macos/"*.sh; do
+for macbase in "${ROOT_DIR}packaging/portable/images/macos/"*.sh; do
     cd "$BUILDER_ROOT"/build
     source "$macbase"
     ffbuild_macbase || return $?
 done
 
 cd "$BUILDER_ROOT"
-for lib in "${ROOT_DIR}builder/scripts.d/"*.sh; do
+for lib in "${ROOT_DIR}packaging/portable/scripts.d/"*.sh; do
     cd "$BUILDER_ROOT"/build
     source "$lib"
     ffbuild_enabled || continue
@@ -79,11 +79,11 @@ cd "${ROOT_DIR}"
 
 # Reconstruct debian/ patches link for build
 mkdir -p debian
-ln -sf patches/ffmpeg debian/patches
+ln -sf "$(pwd)/patches/ffmpeg" debian/patches
 
 if [[ -f "debian/patches/series" ]]; then
     # patches are in debian/patches
-    ln -sf debian/patches patches
+    ln -sf "$(pwd)/debian/patches" patches
     quilt push -a
 fi
 

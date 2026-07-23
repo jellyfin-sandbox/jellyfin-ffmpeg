@@ -96,17 +96,21 @@ package_temporary_dir="$( mktemp -d )"
 
 # Trap cleanup for latter sections
 cleanup() {
-    # Clean up the Dockerfile
-    make -f Dockerfile.make clean
     # Remove tempdir
     rm -rf "${package_temporary_dir}"
 }
 trap cleanup EXIT INT
 
 # Generate Dockerfile
-make -f Dockerfile.make DISTRO=${release} GCC_VER=${gcc_ver} LLVM_VER=${llvm_ver} LLVMSPIRVLIB_VER=${llvmspirvlib_ver} ARCH=${arch}
 # Set up the build environment docker image
-${container_cmd} build . -t "${image_name}"
+${container_cmd} build . \
+    -f packaging/linux/Dockerfile \
+    -t "${image_name}" \
+    --build-arg BASE_IMAGE="${release}" \
+    --build-arg GCC_VER="${gcc_ver}" \
+    --build-arg LLVM_VER="${llvm_ver}" \
+    --build-arg LLVMSPIRVLIB_VER="${llvmspirvlib_ver}" \
+    --build-arg TARGETARCH="${arch}"
 # Build the APKs and copy out to ${package_temporary_dir}
 ${container_cmd} run --rm -e "RELEASE=${release}" -v "${package_temporary_dir}:/dist" "${image_name}"
 # If no 3rd parameter was specified, move APKs to parent directory

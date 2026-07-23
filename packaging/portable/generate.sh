@@ -1,14 +1,9 @@
 #!/bin/bash
 set -e
-# This script should be run from the project root
-# or it will try to find its way.
-if [[ ! -d "builder/scripts.d" ]]; then
-    cd "$(dirname "$0")/../.."
-fi
+cd "$(dirname "$0")"
+source util/vars.sh
 
-source builder/util/vars.sh
-
-rm -f packaging/portable/Dockerfile
+rm -f Dockerfile
 
 layername() {
     printf "layer-"
@@ -20,13 +15,13 @@ exec_dockerstage() {
     (
         SELF="$SCRIPT"
         source "$SCRIPT"
-        ffbuild_enabled || exit 0
-        ffbuild_dockerstage || exit $?
+        ffbuild_enabled || return 0
+        ffbuild_dockerstage || return $?
     )
 }
 
 to_df() {
-    _of="${TODF:-packaging/portable/Dockerfile}"
+    _of="${TODF:-Dockerfile}"
     printf "$@" >> "$_of"
     echo >> "$_of"
 }
@@ -36,16 +31,16 @@ to_df "ENV TARGET=$TARGET VARIANT=$VARIANT REPO=$REPO ADDINS_STR=$ADDINS_STR"
 
 for addin in "${ADDINS[@]}"; do
 (
-    source "builder/addins/${addin}.sh"
+    source addins/"${addin}.sh"
     type ffbuild_dockeraddin &>/dev/null && ffbuild_dockeraddin || true
 )
 done
 
 PREVLAYER="base"
-for ID in $(ls -1d builder/scripts.d/??-* | sed -s 's|^.*/\(..\).*|\1|' | sort -u); do
+for ID in $(ls -1d scripts.d/??-* | sed -s 's|^.*/\(..\).*|\1|' | sort -u); do
     LAYER="layer-$ID"
 
-    for STAGE in builder/scripts.d/$ID-*; do
+    for STAGE in scripts.d/$ID-*; do
         to_df "FROM $PREVLAYER AS $(layername "$STAGE")"
 
         if [[ -f "$STAGE" ]]; then
@@ -58,7 +53,7 @@ for ID in $(ls -1d builder/scripts.d/??-* | sed -s 's|^.*/\(..\).*|\1|' | sort -
     done
 
     to_df "FROM $PREVLAYER AS $LAYER"
-    for STAGE in builder/scripts.d/$ID-*; do
+    for STAGE in scripts.d/$ID-*; do
         if [[ -f "$STAGE" ]]; then
             SCRIPT="$STAGE"
         else
@@ -70,10 +65,10 @@ for ID in $(ls -1d builder/scripts.d/??-* | sed -s 's|^.*/\(..\).*|\1|' | sort -
             SELF="$SCRIPT"
             SELFLAYER="$(layername "$STAGE")"
             source "$SCRIPT"
-            ffbuild_enabled || exit 0
-            ffbuild_dockerlayer || exit $?
-            TODF="packaging/portable/Dockerfile.final" PREVLAYER="__PREVLAYER__" \
-                ffbuild_dockerfinal || exit $?
+            ffbuild_enabled || return 0
+            ffbuild_dockerlayer || return $?
+            TODF="Dockerfile.final" PREVLAYER="__PREVLAYER__" \
+                ffbuild_dockerfinal || return $?
         )
     done
 
@@ -81,7 +76,7 @@ for ID in $(ls -1d builder/scripts.d/??-* | sed -s 's|^.*/\(..\).*|\1|' | sort -
 done
 
 to_df "FROM base"
-if [[ -f packaging/portable/Dockerfile.final ]]; then
-    sed "s/__PREVLAYER__/$PREVLAYER/g" packaging/portable/Dockerfile.final | sort -u >> packaging/portable/Dockerfile
-    rm packaging/portable/Dockerfile.final
+if [[ -f Dockerfile.final ]]; then
+    sed "s/__PREVLAYER__/$PREVLAYER/g" Dockerfile.final | sort -u >> Dockerfile
+    rm Dockerfile.final
 fi

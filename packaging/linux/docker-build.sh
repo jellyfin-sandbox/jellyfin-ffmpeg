@@ -629,7 +629,7 @@ prepare_extra_amd64() {
     pushd ${SOURCE_DIR}
     git clone -b v7.351.0 --recursive --depth=1 https://github.com/haasn/libplacebo.git
     # Wa for the regression made in Mesa RADV
-    git -C libplacebo apply ${SOURCE_DIR}/builder/patches/libplacebo/*.patch
+    git -C libplacebo apply ${SOURCE_DIR}/patches/libplacebo/*.patch
     # Fix build script for python 3.14
     wget -q -O - https://github.com/haasn/libplacebo/commit/12509c0.patch | git -C libplacebo apply
     sed -i 's|env: python_env,||g' libplacebo/src/vulkan/meson.build
